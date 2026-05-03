@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
-import crud, schemas, database
+from app import crud, schemas, database
 
 router = APIRouter(
     prefix="/documents",

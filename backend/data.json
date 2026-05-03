@@ -1,0 +1,12 @@
+[
+    {"latex": "E = mc^2", "order": 1},
+    {"latex": "a^2 + b^2 = c^2", "order": 2},
+    {"latex": "\\int_a^b f(x) dx", "order": 3},
+    {"latex": "\\sum_{i=1}^n i = \\frac{n(n+1)}{2}", "order": 4},
+    {"latex": "e^{i\\pi} + 1 = 0", "order": 5},
+    {"latex": "\\nabla \\times \\mathbf{E} = -\\frac{\\partial \\mathbf{B}}{\\partial t}", "order": 6},
+    {"latex": "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}", "order": 7},
+    {"latex": "\\mathbf{F} = m\\mathbf{a}", "order": 8},
+    {"latex": "PV = nRT", "order": 9},
+    {"latex": "\\psi(x, t) = A e^{i(kx - \\omega t)}", "order": 10}
+]

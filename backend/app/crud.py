@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-import models, schemas
+from app import models, schemas
 from uuid import UUID
 
 # --- User CRUD ---

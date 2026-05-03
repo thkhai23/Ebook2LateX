@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import document
-from database import engine
-import models
+from app.routers import document
+from app.database import engine
+from app import models
 
 # Khởi tạo FastAPI
 app = FastAPI(
@@ -25,4 +25,4 @@ app.include_router(document.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to Ebook2LateX API"}
+    return {"message": "Chao mung ban den voi Ebook2LateX!"}

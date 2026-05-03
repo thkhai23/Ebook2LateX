@@ -1,10 +1,9 @@
 import uuid
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Boolean, Text, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-Base = declarative_base()
+from .database import Base
 
 class User(Base):
     __tablename__ = 'users'
@@ -19,6 +18,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     documents = relationship("Document", back_populates="owner")
+    favorites = relationship("UserFavorite", back_populates="user", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -30,6 +30,7 @@ class Document(Base):
     file_path_url = Column(Text, nullable=False)
     upload_date = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(50), default='Pending')
+    version = Column(Integer, default=1, nullable=False)
 
     owner = relationship("User", back_populates="documents")
     formulas = relationship("FormulaEntry", back_populates="document", cascade="all, delete-orphan")
@@ -48,6 +49,7 @@ class FormulaEntry(Base):
 
     document = relationship("Document", back_populates="formulas")
     logs = relationship("Log", back_populates="formula", cascade="all, delete-orphan")
+    favorited_by = relationship("UserFavorite", back_populates="formula", cascade="all, delete-orphan")
 
 
 class Log(Base):
@@ -63,3 +65,15 @@ class Log(Base):
     environment_info = Column(JSONB)
 
     formula = relationship("FormulaEntry", back_populates="logs")
+
+
+class UserFavorite(Base):
+    __tablename__ = 'user_favorites'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    formula_id = Column(UUID(as_uuid=True), ForeignKey('formula_entries.id', ondelete='CASCADE'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="favorites")
+    formula = relationship("FormulaEntry", back_populates="favorited_by")
