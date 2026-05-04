@@ -24,7 +24,7 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 # --- Document CRUD ---
 def get_documents(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Document).offset(skip).limit(limit).all()
+    return db.query(models.Document).order_by(models.Document.upload_date.desc()).offset(skip).limit(limit).all()
 
 def create_user_document(db: Session, document: schemas.DocumentCreate):
     db_document = models.Document(**document.model_dump())
@@ -43,3 +43,19 @@ def create_formula_entry(db: Session, formula: schemas.FormulaEntryCreate):
     db.commit()
     db.refresh(db_formula)
     return db_formula
+
+def update_formula_entry(db: Session, formula_id: UUID, latex_content: str):
+    db_formula = db.query(models.FormulaEntry).filter(models.FormulaEntry.id == formula_id).first()
+    if db_formula:
+        db_formula.latex_content = latex_content
+        db.commit()
+        db.refresh(db_formula)
+    return db_formula
+
+# --- Log CRUD ---
+def create_log(db: Session, log: schemas.LogBase, formula_id: UUID = None):
+    db_log = models.Log(**log.model_dump(), formula_id=formula_id)
+    db.add(db_log)
+    db.commit()
+    db.refresh(db_log)
+    return db_log

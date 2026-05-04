@@ -1,0 +1,513 @@
+==========================================================================
+TỔNG HỢP KIẾN THỨC DỰ ÁN EBOOK2LATEX (DỰA TRÊN BLOG PHÂN TÍCH)
+==========================================================================
+
+1. TÓM TẮT NỘI DUNG CẦN NHỚ
+--------------------------------------------------------------------------
+- Mục tiêu dự án: Xây dựng hệ thống chuyển đổi công thức toán học từ tài liệu PDF 
+  sang định dạng LaTeX chuẩn quốc tế.
+- Kiến trúc 4 thành phần cốt lõi:
+    1. Frontend: React (Giao diện người dùng)
+    2. Backend: FastAPI (Xử lý logic và API)
+    3. Database: PostgreSQL (Lưu trữ lâu dài)
+    4. AI Pipeline: Xử lý OCR/OCR-Math (Trích xuất công thức)
+- Luồng dữ liệu chính: 
+    Upload PDF -> AI xử lý -> Hiện kết quả lên UI -> Người dùng chỉnh sửa (MathLive) 
+    -> Lưu vào Database.
+
+2. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI TẬP 1A - 1E)
+--------------------------------------------------------------------------
+Câu 1a. PDF là gì? Tại sao được sử dụng nhiều?
+- Trả lời: PDF (Portable Document Format) là định dạng tài liệu di động. Nó được 
+  sử dụng rộng rãi vì giữ nguyên định dạng, font chữ, hình ảnh trên mọi thiết bị 
+  và hệ điều hành khác nhau.
+
+Câu 1b. LateX là gì? Dùng để làm gì?
+- Trả lời: LaTeX là một hệ thống soạn thảo văn bản chất lượng cao. Nó được dùng 
+  để soạn thảo các tài liệu khoa học, kỹ thuật và toán học nhờ khả năng trình bày 
+  công thức toán cực kỳ chuyên nghiệp và chính xác.
+
+Câu 1c. Mathlive symbol là gì? Tại sao phải chuyển đổi qua lại?
+- Trả lời: MathLive là thư viện giao diện cho phép nhập công thức toán học trực quan 
+  (gõ đến đâu hiện ký hiệu đến đó). Cần chuyển đổi vì:
+    - PDF -> LaTeX: Để máy tính có thể hiểu và lưu trữ dưới dạng mã.
+    - LaTeX -> Mathlive: Để người dùng (không biết mã LaTeX) vẫn có thể chỉnh sửa 
+      công thức một cách dễ dàng qua giao diện đồ họa.
+
+Câu 1d. Nên làm Desktop app hay Web app?
+- Trả lời: Tùy mục đích, nhưng Web App (như dự án này) ưu việt hơn về khả năng 
+  tiếp cận (chạy trên trình duyệt, không cần cài đặt), dễ dàng cập nhật và chia sẻ.
+
+Câu 1e. So sánh CSR (Client-side) và SSR (Server-side)?
+- Trả lời:
+    - CSR: Tải trang nhanh sau lần đầu, tương tác mượt mà (React). Nhược điểm là SEO kém hơn.
+    - SSR: Tốt cho SEO vì nội dung được tạo từ Server. Nhược điểm là tải trang chậm 
+      hơn khi có nhiều tương tác phức tạp.
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (TỪ GIẢNG VIÊN)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em sử dụng PostgreSQL mà không phải Excel hay file Text để lưu dữ liệu?
+- Trả lời: PostgreSQL là hệ quản trị CSDL quan hệ mạnh mẽ, hỗ trợ lưu trữ dữ liệu 
+  lớn, đảm bảo tính toàn vẹn (integrity), hỗ trợ kiểu dữ liệu JSONB (để lưu Log) 
+  và có khả năng mở rộng tốt hơn nhiều so với file text đơn giản.
+
+Câu 2: Làm sao em xử lý được việc người dùng sửa công thức sai định dạng LaTeX?
+- Trả lời: Thư viện MathLive tích hợp sẵn bộ kiểm tra cú pháp. Ngoài ra, ở Backend 
+  FastAPI, chúng em có thể bổ sung thêm các bước validation để đảm bảo chỉ những 
+  chuỗi LaTeX hợp lệ mới được lưu vào DB.
+
+Câu 3: Vai trò của SQLAlchemy và Alembic trong dự án này là gì?
+- Trả lời: SQLAlchemy đóng vai trò là ORM (ánh xạ code Python sang SQL) giúp thao tác 
+  với DB dễ dàng. Alembic dùng để quản lý "phiên bản" của CSDL (Migrations), giúp 
+  đồng bộ cấu trúc bảng giữa các máy tính của các thành viên trong nhóm.
+
+Câu 4: Nếu PDF có hàng nghìn trang, hệ thống của em xử lý thế nào để không bị "treo"?
+- Trả lời: Chúng em sẽ sử dụng hàng đợi (Task Queue như Celery) để xử lý ngầm (Background). 
+  Người dùng upload xong có thể làm việc khác, khi nào AI xử lý xong sẽ thông báo lại.
+
+Câu 5: Tính năng "Mua giày" có liên quan gì đến dự án Ebook2LateX không?
+- Trả lời: Đó là một Endpoint thử nghiệm (Test Endpoint) để chứng minh khả năng xử lý 
+  Path Parameters của FastAPI, giúp kiểm tra hệ thống có nhận và phản hồi đúng tham số 
+  từ URL hay không trước khi triển khai các logic phức tạp hơn.
+
+==========================================================================
+PHẦN 2: PHÂN TÍCH HỆ THỐNG (DỰA TRÊN BLOG BÀI 2)
+==========================================================================
+
+1. CẤU TRÚC VÀ CÔNG NGHỆ CHI TIẾT
+--------------------------------------------------------------------------
+- Quản lý môi trường: Sử dụng Docker (Dockerfile & docker-compose.yml) để 
+  đảm bảo mọi thành viên chạy dự án trên môi trường giống hệt nhau.
+- Xử lý PDF (Backend): Sử dụng thư viện PyMuPDF (fitz) để trích xuất ảnh.
+- OCR Toán học (Backend): Sử dụng mô hình pix2tex (LaTeX-OCR) để chuyển ảnh 
+  sang mã LaTeX.
+- Trình soạn thảo (Frontend): Kết hợp React State và MathLive để tạo trình 
+  soạn thảo hai chiều (sửa LaTeX hiện ký hiệu và ngược lại).
+- UI Framework: Tailwind CSS giúp dàn trang nhanh và đẹp.
+
+2. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI 2A - 2.3)
+--------------------------------------------------------------------------
+Bài 2a. Công cụ thực hiện các chức năng:
+- Quản lý mã nguồn: Git
+- Đóng gói môi trường: Docker
+- Framework Frontend: React
+- Framework Backend: FastAPI
+- Trích xuất ảnh PDF: PyMuPDF (fitz)
+- OCR Toán học: pix2tex
+- ORM: SQLAlchemy
+- Database: PostgreSQL
+
+Câu 2.1 Thư viện trích xuất ảnh từ PDF là gì?
+- Trả lời: B. PyMuPDF (fitz).
+
+Câu 2.2 Tại sao sử dụng React State để quản lý dữ liệu soạn thảo?
+- Trả lời: C. Giúp đồng bộ tức thời dữ liệu giữa ô nhập liệu LaTeX và 
+  hiển thị của MathLive.
+
+Câu 2.3 Tập tin nào giúp môi trường phát triển giống hệt nhau?
+- Trả lời: D. Dockerfile và docker-compose.yml.
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN HỆ THỐNG)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em phải dùng Docker mà không cài trực tiếp thư viện vào máy?
+- Trả lời: Các thư viện AI như pix2tex rất nặng và phụ thuộc vào phiên bản Python, 
+  CUDA... Docker giúp đóng gói tất cả vào một "container" chuẩn, giúp việc triển 
+  khai lên Server hoặc máy bạn khác không bị lỗi xung đột môi trường.
+
+Câu 2: Cơ chế đồng bộ giữa MathLive và Textarea hoạt động như thế nào?
+- Trả lời: Em sử dụng một State trung gian (latexContent). Khi người dùng gõ vào 
+  Textarea, nó cập nhật State -> MathLive nhận State mới và render. Khi người 
+  dùng sửa trên MathLive, nó trả về giá trị LaTeX mới -> cập nhật State -> 
+  Textarea nhận giá trị mới.
+
+Câu 3: FastAPI giúp ích gì trong việc chạy các Model AI nặng?
+- Trả lời: FastAPI hỗ trợ "Worker processes" và xử lý bất đồng bộ. Điều này cho 
+  phép Backend tiếp tục nhận các yêu cầu khác trong khi Model AI đang tính toán 
+  một công thức phức tạp, tránh việc hệ thống bị nghẽn (bottleneck).
+
+Câu 4: Làm sao em quản lý được hàng trăm file PDF người dùng upload lên?
+- Trả lời: Chúng em lưu file thực tế trong thư mục "uploads" và chỉ lưu "đường dẫn" 
+  (path) vào bảng Documents trong PostgreSQL. Cách này giúp Database nhẹ hơn 
+  và truy xuất file nhanh hơn.
+
+==========================================================================
+PHẦN 3: CÁC GIAI ĐOẠN THỰC HIỆN (DỰA TRÊN BLOG BÀI 3)
+==========================================================================
+
+1. LỘ TRÌNH 5 GIAI ĐOẠN TRIỂN KHAI
+--------------------------------------------------------------------------
+- GĐ 1 (Nền tảng): Thiết lập Git, PostgreSQL, Docker và khởi tạo FastAPI.
+- GĐ 2 (Lõi AI): Dùng PyMuPDF cắt ảnh PDF và tích hợp pix2tex để OCR LaTeX.
+- GĐ 3 (Giao diện): Dựng React (Vite) + Tailwind CSS, nhúng MathLive Editor 
+  và lập trình đồng bộ 2 chiều.
+- GĐ 4 (Dữ liệu): Kết nối Axios để gửi LaTeX về Backend, dùng SQLAlchemy 
+  để lưu vĩnh viễn vào PostgreSQL.
+- GĐ 5 (Hoàn thiện): Kiểm thử toàn diện và đóng gói docker-compose.
+
+2. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI 3.1 - 3.3)
+--------------------------------------------------------------------------
+Câu 3.1 Công cụ Git dùng để làm gì?
+- Trả lời: B. Để quản lý các phiên bản mã nguồn và theo dõi lịch sử thay 
+  đổi của dự án.
+
+Câu 3.2 Docker là công cụ dùng để làm gì?
+- Trả lời: B. Dùng để tạo ra các "container" giúp đóng gói ứng dụng và 
+  môi trường chạy một cách nhất quán.
+
+Câu 3.3 PostgreSQL thuộc loại công cụ nào?
+- Trả lời: C. Một hệ quản trị cơ sở dữ liệu quan hệ (RDBMS) dùng để lưu trữ dữ liệu.
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN QUY TRÌNH)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em lại chọn React (Vite) mà không phải React (CRA) hay HTML thuần?
+- Trả lời: Vite giúp khởi động dự án cực nhanh, hỗ trợ HMR (Hot Module Replacement) 
+  giúp thấy thay đổi ngay khi lưu code. React giúp quản lý State (công thức) 
+  hiệu quả hơn nhiều so với HTML/JS thuần.
+
+Câu 2: Trong GĐ 4, tại sao em dùng Axios thay vì Fetch API?
+- Trả lời: Axios có cấu hình sẵn cho JSON, xử lý lỗi (error handling) thông minh 
+  hơn và hỗ trợ "interceptors" để quản lý Token bảo mật sau này nếu cần.
+
+Câu 3: Làm sao em kiểm tra được Backend đã kết nối thành công với Database?
+- Trả lời: Chúng em kiểm tra qua các tệp Log hoặc chạy lệnh `alembic upgrade head`. 
+  Nếu các bảng được tạo thành công trong PostgreSQL thì kết nối đã thông suốt.
+
+Câu 4: Theo em, giai đoạn nào là khó khăn nhất trong 5 giai đoạn trên?
+- Trả lời: Giai đoạn 2 (Tích hợp AI) là khó nhất vì đòi hỏi cài đặt đúng các 
+  thư viện máy học nặng và tối ưu hóa thời gian trích xuất ảnh từ PDF để 
+  đạt độ chính xác cao nhất.
+
+==========================================================================
+PHẦN 4: KHỞI TẠO DỰ ÁN VÀ QUẢN LÝ GIT (DỰA TRÊN BLOG BÀI 4)
+==========================================================================
+
+1. QUY TRÌNH 8 BƯỚC THIẾT LẬP CHUẨN
+--------------------------------------------------------------------------
+- B1 (Folder): Tạo thư mục gốc Ebook2LateX.
+- B2 (Git Init): Chạy lệnh `git init` để nhúng Git vào dự án.
+- B3 (Gitignore): Tạo file `.gitignore` để loại bỏ file rác và bảo mật (.env).
+- B4 (Commit): Chạy `git add .` và `git commit -m "Initial commit"`.
+- B5 (Github): Tạo Repository mới trên trang Github (chọn Public/Private).
+- B6 (Remote): Kết nối máy tính với Github bằng lệnh `git remote add origin`.
+- B7 (Branch): Chuyển tên nhánh chính sang main: `git branch -M main`.
+- B8 (Push): Đẩy mã nguồn lên Github lần đầu bằng: `git push -u origin main`.
+
+2. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI 4.1 - 4.3)
+--------------------------------------------------------------------------
+Câu 4.1 File nào dùng để loại bỏ file rác/bảo mật khỏi kho chứa Git?
+- Trả lời: C. .gitignore.
+
+Câu 4.2 Lệnh nào dùng để bắt đầu nhúng Git vào thư mục dự án?
+- Trả lời: B. git init.
+
+Câu 4.3 Chuỗi lệnh đẩy bản commit đầu tiên lên Github là gì?
+- Trả lời: A. (Remote add -> Branch -M -> Push -u).
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN KHỞI TẠO)
+--------------------------------------------------------------------------
+Câu 1: Tại sao không nên lưu file .env vào kho chứa Git?
+- Trả lời: Vì file .env chứa các thông tin cực kỳ nhạy cảm như Database URL, 
+  mật khẩu, API keys. Nếu lưu vào Git và đẩy lên Github, bất kỳ ai cũng có 
+  thể thấy và hack hệ thống của chúng ta.
+
+Câu 2: "Staging Area" (Vùng chờ) trong Git có vai trò gì?
+- Trả lời: Đó là vùng đệm để chúng ta chọn lọc những thay đổi nào sẽ được 
+  đưa vào bản ghi (commit). Lệnh `git add` giúp đưa file vào vùng này.
+
+Câu 3: Mục đích của việc đặt thông điệp (message) khi commit là gì?
+- Trả lời: Giúp các thành viên trong nhóm (hoặc chính mình sau này) hiểu 
+  được bản cập nhật này chứa những thay đổi gì mà không cần phải đọc lại code.
+
+Câu 4: Em hiểu thế nào về tham số "-u" trong lệnh git push?
+- Trả lời: `-u` giúp thiết lập một "mối liên kết theo dõi" (upstream) giữa 
+  máy cục bộ và Github. Sau lần này, em chỉ cần gõ `git push` là hệ thống 
+  tự hiểu cần đẩy lên đâu.
+
+==========================================================================
+PHẦN 5: CÀI ĐẶT CƠ SỞ DỮ LIỆU (DỰA TRÊN BLOG BÀI 5)
+==========================================================================
+
+1. QUY TRÌNH THIẾT LẬP POSTGRESQL
+--------------------------------------------------------------------------
+- B1 (Cài đặt): Tải PostgreSQL từ trang chủ, thiết lập mật khẩu (ví dụ: p@ssword1) 
+  và cổng mặc định 5432.
+- B2 (Tạo DB): Sử dụng pgAdmin4, chuột phải vào Databases -> Create -> 
+  nhập tên: ebook2latex_db.
+- B3 (Cấu hình .env): Tạo file .env trong thư mục backend và thêm chuỗi kết nối:
+  DATABASE_URL=postgresql://postgres:mat_khau@localhost:5432/ebook2latex_db
+
+2. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI 5.1 - 5.3)
+--------------------------------------------------------------------------
+Câu 5.1 Tại sao lưu cấu hình DB trong .env thay vì viết thẳng vào code?
+- Trả lời: B. Để đảm bảo tính bảo mật (không lộ mật khẩu) và giúp dễ dàng 
+  thay đổi cấu hình khi chuyển đổi môi trường mà không cần sửa mã nguồn.
+
+Câu 5.2 Trong chuỗi kết nối, số "5432" đóng vai trò gì?
+- Trả lời: C. Là cổng kết nối (port) mặc định để ứng dụng giao tiếp với PostgreSQL.
+
+Câu 5.3 Cấu hình đúng cho DB "project_math" với mật khẩu "123456" là gì?
+- Trả lời: B. DATABASE_URL=postgresql://postgres:123456@localhost:5432/project_math
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN DATABASE)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em chọn PostgreSQL mà không phải MySQL?
+- Trả lời: PostgreSQL hỗ trợ xử lý dữ liệu phức tạp tốt hơn, có tính toàn vẹn 
+  dữ liệu cao và đặc biệt hỗ trợ kiểu dữ liệu JSONB cực tốt để lưu trữ các 
+  Log xử lý AI sau này.
+
+Câu 2: Nếu máy em đã chạy một ứng dụng khác ở cổng 5432 thì sao?
+- Trả lời: Em sẽ đổi cổng kết nối của PostgreSQL sang 5433 (hoặc số khác) 
+  khi cài đặt, sau đó cập nhật số cổng này vào file .env để ứng dụng 
+  kết nối đúng.
+
+Câu 3: pgAdmin4 có vai trò gì trong dự án này?
+- Trả lời: Đây là giao diện quản lý đồ họa (GUI) giúp em dễ dàng xem dữ liệu, 
+  tạo bảng, chạy câu lệnh SQL thử nghiệm mà không cần dùng dòng lệnh phức tạp.
+
+Câu 4: Làm thế nào để Backend biết đọc thông tin từ file .env?
+- Trả lời: Chúng em sử dụng thư viện `python-dotenv`. Thư viện này sẽ tự động 
+  quét file .env và đưa các thông số vào biến môi trường của hệ thống.
+
+==========================================================================
+PHẦN 6: PHÂN TÍCH VÀ THIẾT KẾ CÁC BẢNG (DỰA TRÊN BLOG BÀI 6)
+==========================================================================
+
+1. HỆ THỐNG 4 BẢNG CƠ SỞ DỮ LIỆU
+--------------------------------------------------------------------------
+- Bảng Documents: Lưu thông tin PDF (FileName, FilePath, UploadDate, Status).
+- Bảng FormulaEntries: Lưu kết quả OCR (LatexContent, ImagePath, OrderIndex). 
+  Liên kết với Documents qua DocumentID (Khóa ngoại).
+- Bảng Users: Quản lý người dùng (Username, PasswordHash, Role).
+- Bảng Logs: Theo dõi AI (ProcessingTime, ConfidenceScore, ErrorMessage).
+
+2. CHI TIẾT CÁC TRƯỜNG DỮ LIỆU QUAN TRỌNG
+--------------------------------------------------------------------------
+- Primary Key (Khóa chính): Định danh duy nhất cho mỗi dòng trong bảng.
+- Foreign Key (Khóa ngoại): Tạo mối quan hệ giữa các bảng (ví dụ: Công thức 
+  thuộc về Tài liệu nào).
+- ConfidenceScore: Độ tin cậy của AI (0-1). Giúp cảnh báo người dùng kiểm tra 
+  lại nếu điểm quá thấp.
+- PasswordHash: Mật khẩu đã mã hóa, đảm bảo an toàn nếu DB bị rò rỉ.
+
+3. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN THIẾT KẾ)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em chia làm 2 bảng Documents và FormulaEntries?
+- Trả lời: Đây là mối quan hệ 1-nhiều. Một tài liệu PDF có thể chứa hàng trăm 
+  công thức. Việc chia bảng giúp quản lý dữ liệu gọn gàng và truy xuất nhanh hơn.
+
+Câu 2: "OrderIndex" trong bảng FormulaEntries dùng để làm gì?
+- Trả lời: Để ghi lại thứ tự xuất hiện của công thức trong tài liệu gốc. Khi 
+  xuất ra file LaTeX cuối cùng, chúng ta dựa vào đây để sắp xếp nội dung 
+  đúng cấu trúc ban đầu.
+
+Câu 3: Làm sao để bảo mật mật khẩu người dùng trong dự án này?
+- Trả lời: Em không lưu mật khẩu thô. Em sử dụng các giải thuật băm (hashing) 
+  như bcrypt để chuyển mật khẩu thành một chuỗi ký tự không thể giải mã ngược, 
+  và lưu chuỗi đó vào trường PasswordHash.
+
+Câu 4: Bảng Logs giúp ích gì cho lập trình viên?
+- Trả lời: Giúp theo dõi xem Model AI nào đang chạy chậm hoặc hay gặp lỗi, 
+  từ đó có kế hoạch tối ưu hóa hoặc thay thế Model AI khác hiệu quả hơn.
+
+==========================================================================
+PHẦN 7: TẠO CÁC BẢNG DỮ LIỆU (DỰA TRÊN BLOG BÀI 7)
+==========================================================================
+
+1. GIẢI PHÁP QUẢN LÝ DB CHUYÊN NGHIỆP
+--------------------------------------------------------------------------
+- Sử dụng SQLAlchemy (ORM): Định nghĩa bảng bằng Class Python, giúp quản lý 
+  mối quan hệ (Relationship) và ràng buộc (Constraint) dễ dàng.
+- Sử dụng Alembic (Migration): Ghi lại lịch sử thay đổi cấu trúc DB. Giúp 
+  cả nhóm đồng bộ dữ liệu chỉ bằng một câu lệnh, không cần tạo bảng thủ công.
+
+2. CÁC LỆNH QUAN TRỌNG CẦN NHỚ
+--------------------------------------------------------------------------
+- Tạo môi trường ảo: `python -m venv venv`.
+- Kích hoạt (Windows): `venv\Scripts\activate`.
+- Cài đặt thư viện: `pip install sqlalchemy alembic psycopg2-binary`.
+- Khởi tạo Alembic: `alembic init migrations`.
+- Tạo file script: `alembic revision --autogenerate -m "thong_diep"`.
+- Cập nhật DB: `alembic upgrade head`.
+
+3. TRẢ LỜI CÁC CÂU HỎI TRONG BLOG (BÀI 7.1 - 7.5)
+--------------------------------------------------------------------------
+Câu 7.1 Môi trường ảo (venv) là gì?
+- Trả lời: B. Thư mục chứa Python và thư viện riêng biệt, tránh xung đột hệ thống.
+
+Câu 7.2 Lệnh nào thực thi thay đổi vào DB thực tế?
+- Trả lời: C. alembic upgrade head.
+
+Câu 7.3 Tại sao dùng Class Python thay vì viết SQL?
+- Trả lời: A. Giúp truy xuất dữ liệu qua đối tượng và quản lý quan hệ phức tạp.
+
+Câu 7.4 Lợi ích lớn nhất của Migration khi làm nhóm?
+- Trả lời: B. Đồng bộ cấu trúc bảng chỉ bằng 1 câu lệnh qua file script.
+
+Câu 7.5 Thao tác bắt buộc trong env.py để Alembic "thấy" model?
+- Trả lời: C. Import Base từ models.py và gán cho target_metadata.
+
+4. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN THỰC THI)
+--------------------------------------------------------------------------
+Câu 1: Tại sao em lại dùng "requirements.txt"?
+- Trả lời: Để Docker và các thành viên khác biết chính xác danh sách và 
+  phiên bản thư viện cần cài đặt, đảm bảo dự án chạy ổn định ở mọi nơi.
+
+Câu 2: Cơ chế "CASCADE" hoạt động thế nào trong code của em?
+- Trả lời: Khi em xóa 1 bản ghi ở bảng cha (ví dụ Documents), PostgreSQL sẽ 
+  tự động xóa sạch các bản ghi liên quan ở bảng con (FormulaEntries), 
+  tránh dữ liệu mồ côi.
+
+Câu 3: Làm thế nào để Alembic biết mật khẩu Database của em?
+- Trả lời: Em cấu hình dòng `sqlalchemy.url` trong file `alembic.ini` hoặc 
+  lấy từ file `.env` thông qua thư viện `python-dotenv`.
+
+==========================================================================
+PHẦN 8: NHẬP DỮ LIỆU TỰ ĐỘNG - SEEDING (DỰA TRÊN BLOG BÀI 8)
+==========================================================================
+
+1. KHÁI NIỆM VÀ LỢI ÍCH CỦA SEEDING
+--------------------------------------------------------------------------
+- Khái niệm: Seeding (gieo hạt) là quá trình tự động nạp dữ liệu mẫu vào 
+  các bảng trong Database thông qua script Python.
+- Lợi ích:
+  + Tiết kiệm thời gian (tạo hàng nghìn bản ghi trong vài giây).
+  + Kiểm thử giao diện (UI/UX) với dữ liệu thực tế (xem khung có bị vỡ không).
+  + Đồng bộ dữ liệu giữa các thành viên trong nhóm phát triển.
+  + Xác thực cấu trúc và các ràng buộc (Khóa ngoại, Check) của Database.
+
+2. CÁC THÀNH PHẦN KỸ THUẬT (SQLAlchemy Session)
+--------------------------------------------------------------------------
+- create_engine: Trung tâm điều khiển kết nối thực tế tới PostgreSQL.
+- SessionLocal: Thành phần tạo ra các phiên làm việc (Session) để truy vấn.
+- commit(): Lệnh xác nhận lưu dữ liệu vào DB.
+- rollback(): Hoàn tác nếu có lỗi xảy ra để tránh rác dữ liệu.
+
+3. QUY TRÌNH THỰC HIỆN SEEDING
+--------------------------------------------------------------------------
+- B1: Tạo `database.py` để khởi tạo Engine và SessionLocal.
+- B2: Di chuyển `models.py` vào thư mục `app/` để đồng bộ cấu trúc.
+- B3: Viết script `seed.py` khởi tạo đối tượng (User, Document, Formula) 
+  và dùng `db.add()`, `db.commit()` để lưu.
+- B4: Chạy lệnh `python seed.py` trong Terminal.
+
+4. GIẢI ĐÁP CÂU HỎI BÀI TẬP (BÀI 8.1 - 8.4)
+--------------------------------------------------------------------------
+Câu 8.1 Thư viện python-dotenv dùng để làm gì?
+- Trả lời: B. Nạp các biến môi trường (Database URL) từ file .env vào hệ thống.
+
+Câu 8.2 Đối tượng engine (create_engine) đóng vai trò gì?
+- Trả lời: C. Là "trung tâm điều khiển" quản lý việc giao tiếp giữa Python và DB.
+
+Câu 8.3 Tại sao nên dùng SessionLocal thay vì kết nối trực tiếp?
+- Trả lời: B. Để SQLAlchemy quản lý các thay đổi, cho phép commit hoặc rollback.
+
+Câu 8.4 Khi seed bảng Document có khóa ngoại UserID, ta cần làm gì?
+- Trả lời: A. Phải tạo User trước, lấy ID đó gán vào Document để đảm bảo 
+  tính toàn vẹn.
+
+5. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN SEEDING)
+--------------------------------------------------------------------------
+Câu 1: "Flush" và "Commit" khác nhau thế nào trong script seeding của em?
+- Trả lời: `db.flush()` đẩy dữ liệu xuống DB nhưng chưa lưu vĩnh viễn, giúp 
+  em lấy được ID tự sinh để gán cho các bảng con. `db.commit()` mới chính 
+  thức lưu mọi thứ vào ổ đĩa.
+
+Câu 2: Nếu muốn tạo 1000 người dùng mẫu, em có nhập tay không?
+- Trả lời: Không, em sẽ sử dụng thư viện **Faker** kết hợp với vòng lặp `for` 
+  để tự động sinh ra tên, email và địa chỉ ngẫu nhiên.
+
+Câu 3: Làm thế nào để đảm bảo dữ liệu mẫu không bị trùng lặp mỗi khi chạy?
+- Trả lời: Em có thể viết thêm logic xóa sạch dữ liệu cũ trước khi nạp mới, 
+  hoặc sử dụng lệnh `try-except` để bỏ qua nếu gặp lỗi trùng lặp (Unique Constraint).
+
+==========================================================================
+PHẦN 9: TỔNG QUAN VỀ WEB SERVICES (DỰA TRÊN BLOG BÀI 9)
+==========================================================================
+
+1. ĐỊNH NGHĨA WEB SERVICES
+--------------------------------------------------------------------------
+- Là dịch vụ trao đổi dữ liệu giữa các thiết bị điện tử trên môi trường mạng 
+  thông qua giao thức HTTP/HTTPS.
+- Khác biệt với Trang web: 
+  + Trang web: Dành cho con người đọc (HTML/CSS).
+  + Web Services: Dành cho chương trình/phần mềm đọc (JSON/XML).
+
+2. CÔNG NGHỆ FASTAPI (BACKEND)
+--------------------------------------------------------------------------
+- Đặc điểm: Tốc độ cao (tương đương Go/Node.js), hỗ trợ async (bất đồng bộ).
+- Thành phần bổ trợ:
+  + Uvicorn: Web server chuẩn ASGI để chạy ứng dụng Python.
+  + Pydantic: Kiểm tra và xác thực dữ liệu (Data Validation).
+- Lệnh cài đặt: `pip install "fastapi[all]"`.
+- Lệnh chạy: `uvicorn main:app --reload`.
+
+3. GIẢI ĐÁP CÂU HỎI BÀI 9 (9.1 - 9.8)
+--------------------------------------------------------------------------
+Câu 9.1 Web services là gì?
+- Trả lời: B. Dịch vụ trao đổi giữa các thiết bị qua WWW/HTTP.
+
+Câu 9.2 Tại sao dùng JSON/XML để trao đổi dữ liệu?
+- Trả lời: C. Là định dạng chuẩn giúp các hệ thống khác nhau (Python, React) 
+  hiểu nhau.
+
+Câu 9.5 ASGI là gì?
+- Trả lời: B. Chuẩn giao diện hỗ trợ lập trình bất đồng bộ cho web server Python.
+
+Câu 9.8 Ký hiệu Decorator trong Python là gì?
+- Trả lời: D. Dấu @ (ví dụ: @app.get).
+
+==========================================================================
+PHẦN 10: LẬP TRÌNH WEB SERVICES (DỰA TRÊN BLOG BÀI 10)
+==========================================================================
+
+1. MÔ HÌNH CLIENT-SERVER
+--------------------------------------------------------------------------
+- Client (Máy khách): Khởi phát yêu cầu (Request). Là thành phần chủ động.
+- Server (Máy chủ): Tiếp nhận, xử lý và trả kết quả (Response). Là thành phần bị động.
+- Giao thức: HTTP/HTTPS là "ngôn ngữ chung" để hai bên giao tiếp.
+
+2. QUY TRÌNH XỬ LÝ CỦA FASTAPI
+--------------------------------------------------------------------------
+- Bước 1: Khởi chạy Uvicorn (Web Server).
+- Bước 2: Client (Trình duyệt) gửi HTTP Request tới URL cụ thể.
+- Bước 3: FastAPI kiểm tra Routing (Decorator) để tìm hàm xử lý tương ứng.
+- Bước 4: Thực thi code Python và trả về kết quả (thường là JSON) cho Client.
+
+3. CÔNG CỤ KIỂM TRA (DEVELOPER TOOLS)
+--------------------------------------------------------------------------
+- Phím tắt: F12 hoặc Ctrl+Shift+I.
+- Tab Network: Dùng để quan sát các gói tin Request/Response, kiểm tra 
+  thời gian phản hồi và dữ liệu trả về từ Server.
+
+4. GIẢI ĐÁP CÂU HỎI BÀI 10 (10.1 - 10.8)
+--------------------------------------------------------------------------
+Câu 10.1 Thành phần nào khởi phát yêu cầu?
+- Trả lời: B. Client.
+
+Câu 10.3 Phần mềm nào làm Web Server chuẩn ASGI?
+- Trả lời: C. Uvicorn.
+
+Câu 10.6 Ý nghĩa của @app.get("/")?
+- Trả lời: C. Điều hướng yêu cầu (Routing) từ trang chủ vào hàm xử lý tương ứng.
+
+Câu 10.7 Lệnh chạy server tự động cập nhật khi sửa code?
+- Trả lời: C. uvicorn main:app --reload.
+
+5. BỘ CÂU HỎI PHẢN BIỆN GIẢ ĐỊNH (PHẦN WEB SERVICES)
+--------------------------------------------------------------------------
+Câu 1: "Async" trong FastAPI có lợi ích gì cho dự án Ebook2LateX?
+- Trả lời: Giúp server không bị "treo" khi xử lý các PDF nặng. Trong lúc 
+  chờ AI trích xuất LaTeX, server vẫn có thể tiếp nhận yêu cầu từ người 
+  dùng khác.
+
+Câu 2: Tại sao em không dùng REST thay vì SOAP?
+- Trả lời: REST sử dụng định dạng JSON nhẹ hơn, dễ lập trình hơn và tương 
+  thích hoàn hảo với các framework hiện đại như React.
+
+Câu 3: Nếu Uvicorn báo lỗi "Port 8000 is already in use", em xử lý thế nào?
+- Trả lời: Em sẽ tìm và tắt ứng dụng đang chiếm cổng đó, hoặc chạy Uvicorn 
+  trên cổng khác bằng lệnh: `uvicorn main:app --port 8001`.
+
+==========================================================================
+NGƯỜI TỔNG HỢP: ANTIGRAVITY AI - 2026
+==========================================================================

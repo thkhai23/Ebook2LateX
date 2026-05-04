@@ -1,6 +1,6 @@
 import uuid
 from app.database import SessionLocal
-from app.models import User, Document, FormulaEntry
+from app.models import User, Document, FormulaEntry, Log
 
 def seed_data():
     # 1. Khởi tạo phiên làm việc (Session)
@@ -10,16 +10,15 @@ def seed_data():
         print("Dang tao du lieu...")
 
         # 2. Tạo dữ liệu cho bảng User
-        # Lưu ý: Trong thực tế mật khẩu cần được băm (hash), ở đây ta nhập mật khẩu tượng trưng
         test_user = User(
             user_id=uuid.uuid4(),
-            username_email="teo@dalat.edu.vn",
-            password_hash="hashed_password_here",
-            full_name="Le Van Teo",
+            username_email="admin@ebook2latex.com",
+            password_hash="admin123", # Plain text for demo, use hash in production
+            full_name="System Administrator",
             role="Admin"
         )
         db.add(test_user)
-        db.flush() # Đẩy dữ liệu tạm thời để lấy user_id cho bảng sau
+        db.flush()
 
         # 3. Tạo dữ liệu mẫu cho bảng Documents
         test_doc = Document(
@@ -32,7 +31,7 @@ def seed_data():
         db.add(test_doc)
         db.flush()
 
-        # 4. Tạo dữ liệu mẫu cho bảng FormulaEntries (Công thức LaTeX)
+        # 4. Tạo dữ liệu mẫu cho bảng FormulaEntries
         formula = FormulaEntry(
             id=uuid.uuid4(),
             document_id=test_doc.id,
@@ -40,10 +39,21 @@ def seed_data():
             order_index=1
         )
         db.add(formula)
+        db.flush()
 
-        # 5. Xác nhận lưu toàn bộ thay đổi vào Database
+        # 5. Tạo dữ liệu mẫu cho bảng Log
+        log_entry = Log(
+            log_id=uuid.uuid4(),
+            formula_id=formula.id,
+            processing_time_ms=1250,
+            confidence_score=0.97,
+            environment_info={"device": "cpu", "version": "v1.0"}
+        )
+        db.add(log_entry)
+
+        # 6. Xác nhận lưu toàn bộ thay đổi vào Database
         db.commit()
-        print("Tao du lieu thanh cong! Kiem tra pgAdmin4 de xem ket qua.")
+        print("Tao du lieu thanh cong!")
 
     except Exception as e:
         print(f"Co loi xay ra: {e}")
